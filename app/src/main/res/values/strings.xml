@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">TestApp</string>
+    <string name="auth_login">Войти</string>
+    <string name="retry">Повторить</string>
+    <string name="no_results">Список пуст</string>
+    <string name="auth_canceled">Авторизация отменена</string>
+    <string name="search_hint">Поиск</string>
+    <string name="fork">Fork: </string>
+    <string name="watch">Watch: </string>
+    <string name="star">Star: </string>
+    <string name="language">Язык: </string>
+    <string name="internet_toast">Отсутствует соединение с сетью, показаны ранее загруженные репозитории </string>
+</resources>
