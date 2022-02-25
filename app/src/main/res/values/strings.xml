@@ -1,13 +1,13 @@
 <resources>
     <string name="app_name">TestApp</string>
-    <string name="auth_login">Войти</string>
     <string name="retry">Повторить</string>
-    <string name="no_results">Список пуст</string>
-    <string name="auth_canceled">Авторизация отменена</string>
-    <string name="search_hint">Поиск</string>
-    <string name="fork">Fork: </string>
-    <string name="watch">Watch: </string>
-    <string name="star">Star: </string>
-    <string name="language">Язык: </string>
-    <string name="internet_toast">Отсутствует соединение с сетью, показаны ранее загруженные репозитории </string>
+    <string name="view_image">ViewImage</string>
+    <string name="profile_fragment_title">Profile fragment</string>
+    <string name="basket_fragment_title">Basket Fragment</string>
+    <string name="default_price">от 345 р</string>
+    <string name="basic_location">Москва</string>
+    <string name="menu_food_title_text">Меню</string>
+    <string name="menu_profile_title_text">Профиль</string>
+    <string name="menu_basket_title_text">Корзина</string>
+    <string name="image_view_desc">Image Source</string>
 </resources>

@@ -2,32 +2,17 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/authFragment">
-
+    app:startDestination="@id/menuFragment">
     <fragment
-        android:id="@+id/authFragment"
-        android:name="com.example.testapp.ui.auth.AuthFragment"
-        android:label="AuthFragment" >
-        <action
-            android:id="@+id/action_authFragment_to_listFragment"
-            app:destination="@id/listFragment"
-            app:popUpTo="@id/listFragment"
-            app:popUpToInclusive="true" />
-    </fragment>
+        android:id="@+id/menuFragment"
+        android:name="com.example.testapp.ui.MenuFragment"
+        android:label="MenuFragment" />
     <fragment
-        android:id="@+id/listFragment"
-        android:name="com.example.testapp.ui.ListFragment"
-        android:label="ListFragment" >
-        <action
-            android:id="@+id/action_listFragment_to_detailsFragment"
-            app:destination="@id/detailsFragment" />
-    </fragment>
+        android:id="@+id/profileFragment"
+        android:name="com.example.testapp.ui.ProfileFragment"
+        android:label="ProfileFragment" />
     <fragment
-        android:id="@+id/detailsFragment"
-        android:name="com.example.testapp.ui.DetailsFragment"
-        android:label="DetailsFragment" >
-        <argument
-            android:name="repo"
-            app:argType="com.example.testapp.data.models.RemoteRepository" />
-    </fragment>
+        android:id="@+id/basketFragment"
+        android:name="com.example.testapp.ui.BasketFragment"
+        android:label="BasketFragment" />
 </navigation>

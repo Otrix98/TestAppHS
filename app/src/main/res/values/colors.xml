@@ -11,4 +11,11 @@
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
     <color name="colorSecondary">#cfd8dc</color>
+    <color name="grey_description">#6F6A6A</color>
+    <color name="gray_tint">#C3C4C9</color>
+    <color name="backgroundClicked">#34FD3A69</color>
+    <color name="gray">#7B7B7B</color>
+    <color name="pink">#FD3A69</color>
+    <color name="poor_white">#F0F0F0</color>
+    <color name="background_color">#F3F5F9</color>
 </resources>

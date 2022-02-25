@@ -1,7 +1,6 @@
 package com.example.testapp.di
 
-import com.example.testapp.Networking.CustomInterceptor
-import com.example.testapp.Networking.GithubApi
+import com.example.testapp.networking.SpoonacularApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,8 +18,6 @@ class ApiModule {
     @Singleton
     fun provideHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
-            .addNetworkInterceptor(CustomInterceptor())
-
             .addNetworkInterceptor(
                 HttpLoggingInterceptor()
                     .setLevel(HttpLoggingInterceptor.Level.BODY)
@@ -33,14 +30,14 @@ class ApiModule {
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .addConverterFactory(MoshiConverterFactory.create())
-            .baseUrl("https://api.github.com")
+            .baseUrl("https://api.spoonacular.com")
             .client(okHttpClient)
             .build()
     }
 
     @Provides
     @Singleton
-    fun provideUnsplashApi(retrofit: Retrofit): GithubApi {
-        return retrofit.create(GithubApi::class.java)
+    fun provideUnsplashApi(retrofit: Retrofit): SpoonacularApi {
+        return retrofit.create(SpoonacularApi::class.java)
     }
 }
