@@ -1,13 +1,11 @@
 package com.example.testapp.ui.viemodels
 
-import android.os.Parcelable
+import android.util.Log
 import androidx.lifecycle.*
 import androidx.paging.*
-import androidx.recyclerview.widget.RecyclerView
 import com.example.testapp.data.Repository
+import com.example.testapp.data.models.CategoryItem
 import com.example.testapp.data.models.MenuItem
-import com.example.testapp.paging.GetListPagingSource
-import com.example.testapp.utils.SingleLiveEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -16,60 +14,98 @@ import javax.inject.Inject
 @ExperimentalPagingApi
 @HiltViewModel
 class ListViewModel @Inject constructor(
-    private val repository: Repository
+    private val repository: Repository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val listItemsMutable = MutableLiveData<List<MenuItem>>(emptyList())
+    private val categoriesMutable = MutableLiveData(repository.categoryList)
+    val categoriesList: LiveData<List<CategoryItem>>
+        get() = categoriesMutable
 
-    private val showProgressBarMutable = MutableLiveData(false)
-    val progressBarVisible: LiveData<Boolean>
-        get() = showProgressBarMutable
+    val state: StateFlow<UiState>
 
-    private val serverConnectErrorEvent = SingleLiveEvent<String>()
-    val serverConnectError: LiveData<String>
-        get() = serverConnectErrorEvent
+    val pagingDataFlow: Flow<PagingData<MenuItem>>
 
-    fun flowGetListBreweries(queryKey: String): Flow<PagingData<MenuItem>> {
-        return Pager(
-            PagingConfig(pageSize = 20)
-        ) {
-            GetListPagingSource(queryKey, ::getList)
-        }.flow
+    val accept: (UiAction) -> Unit
+
+    init {
+        val initialQuery: String = savedStateHandle.get(LAST_SEARCH_QUERY) ?: DEFAULT_QUERY
+        val lastQueryScrolled: String = savedStateHandle.get(LAST_QUERY_SCROLLED) ?: DEFAULT_QUERY
+        val actionStateFlow = MutableSharedFlow<UiAction>()
+        val searches = actionStateFlow
+            .filterIsInstance<UiAction.Search>()
+            .distinctUntilChanged()
+            .onStart { emit(UiAction.Search(query = initialQuery)) }
+        val queriesScrolled = actionStateFlow
+            .filterIsInstance<UiAction.Scroll>()
+            .distinctUntilChanged()
+            .shareIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000),
+                replay = 1
+            )
+            .onStart { emit(UiAction.Scroll(currentQuery = lastQueryScrolled)) }
+
+        pagingDataFlow = searches
+            .flatMapLatest { searchRepo(queryString = it.query) }
             .cachedIn(viewModelScope)
-    }
 
-    private suspend fun getList(queryKey: String, page: Int): List<MenuItem> {
-        return withContext(Dispatchers.IO) {
-            try {
-                showProgressBar()
-                repository.getItems(queryKey, page).also { receivedList ->
-                    hideProgressBar()
-                    addNewListToLiveData(receivedList)
-                }
-            } catch (t: Throwable) {
-                hideProgressBar()
-                serverConnectErrorEvent.postValue(t.message)
-                return@withContext emptyList()
-            }
+        state = combine(
+            searches,
+            queriesScrolled,
+            ::Pair
+        ).map { (search, scroll) ->
+            UiState(
+                query = search.query,
+                lastQueryScrolled = scroll.currentQuery,
+                // If the search query matches the scroll query, the user has scrolled
+                hasNotScrolledForCurrentSearch = search.query != scroll.currentQuery
+            )
+        }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000),
+                initialValue = UiState()
+            )
+
+        accept = { action ->
+            viewModelScope.launch { actionStateFlow.emit(action) }
         }
     }
 
-    private fun addNewListToLiveData(newList: List<MenuItem>) {
-        val sumList = listItemsMutable.value?.plus(newList)
-        if (sumList != null) {
-            listItemsMutable.postValue(sumList!!)
+    override fun onCleared() {
+        savedStateHandle[LAST_SEARCH_QUERY] = state.value.query
+        savedStateHandle[LAST_QUERY_SCROLLED] = state.value.lastQueryScrolled
+        super.onCleared()
+    }
+
+    private fun searchRepo(queryString: String): Flow<PagingData<MenuItem>> =
+        repository.getSearchResultStream(queryString)
+
+    fun updateCategory(query: String) {
+       val newList = categoriesList.value
+        newList?.forEach{
+            it.isPressed = it.nameEng == query
         }
+        categoriesMutable.postValue(newList!!)
     }
-
-    private fun showProgressBar() {
-        showProgressBarMutable.postValue(true)
-    }
-
-    private fun hideProgressBar() {
-        showProgressBarMutable.postValue(false)
-    }
-
 }
+
+
+sealed class UiAction {
+    data class Search(val query: String) : UiAction()
+    data class Scroll(val currentQuery: String) : UiAction()
+}
+
+data class UiState(
+    val query: String = DEFAULT_QUERY,
+    val lastQueryScrolled: String = DEFAULT_QUERY,
+    val hasNotScrolledForCurrentSearch: Boolean = false
+)
+
+private const val LAST_QUERY_SCROLLED: String = "last_query_scrolled"
+private const val LAST_SEARCH_QUERY: String = "last_search_query"
+private const val DEFAULT_QUERY = "Pizza"
 
 
 

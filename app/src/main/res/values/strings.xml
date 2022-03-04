@@ -10,4 +10,5 @@
     <string name="menu_profile_title_text">Профиль</string>
     <string name="menu_basket_title_text">Корзина</string>
     <string name="image_view_desc">Image Source</string>
+    <string name="no_results">Список пуст 😓</string>
 </resources>

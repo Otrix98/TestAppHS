@@ -2,6 +2,14 @@
 buildscript {
     ext.kotlin_version = "1.6.10"
     ext.hilt_version = "2.40.5"
+    ext.roomVersion = '2.3.0'
+    ext.pagingVersion = '3.1.0'
+    ext.moshiVersion = '1.13.0'
+    ext.coroutinesVersion = '1.6.0-RC'
+    ext.lifecycleVersion = '2.4.0-alpha01'
+    ext.retrofitVersion = '2.9.0'
+    ext.okhttpLoggingInterceptorVersion = '4.9.0'
+
     repositories {
         google()
         mavenCentral()

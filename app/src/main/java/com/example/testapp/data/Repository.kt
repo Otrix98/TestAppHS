@@ -1,36 +1,48 @@
 package com.example.testapp.data
 
+import androidx.paging.ExperimentalPagingApi
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import com.example.testapp.data.models.CategoryItem
 import com.example.testapp.networking.SpoonacularApi
 import com.example.testapp.data.models.MenuItem
+import com.example.testapp.db.FoodDatabase
+import com.example.testapp.paging.RemoteMediator
+import kotlinx.coroutines.flow.Flow
 
 
 import javax.inject.Inject
 
 class Repository@Inject constructor(
     private val api: SpoonacularApi,
+    private val dataBase: FoodDatabase
 ) {
-    suspend fun getItems(query: String, page: Int): List<MenuItem> {
-       return api.searchItems(API_KEY_3, categoryTranslator(query), page, NETWORK_PAGE_SIZE).menuItems
-    }
+    val categoryList = listOf(
+        CategoryItem("Пицца", "Pizza",true),
+        CategoryItem("Бургеры", "Burger"),
+        CategoryItem("Закуски", "Appetizer"),
+        CategoryItem("Роллы", "Sushi"),
+        CategoryItem("Десерты", "Dessert"),
+        CategoryItem("Напитки", "Drink")
+    )
 
-    private fun categoryTranslator(string: String): String {
-        return when (string) {
-            "Пицца" -> "pizza"
-            "Бургеры" -> "burger"
-            "Закуски" -> "Snack"
-            "Роллы" -> "sushi"
-            "Десерты" -> "dessert"
-            "Напитки" -> "drink"
-            else -> {
-                "kebab"
-            }
-        }
+    fun getSearchResultStream(query: String): Flow<PagingData<MenuItem>> {
+        val pagingSourceFactory = { dataBase.foodDao().itemsByName() }
+
+        @OptIn(ExperimentalPagingApi::class)
+        return Pager(
+            config = PagingConfig(pageSize = NETWORK_PAGE_SIZE, enablePlaceholders = false),
+            remoteMediator = RemoteMediator(
+                query,
+                api,
+                dataBase
+            ),
+            pagingSourceFactory = pagingSourceFactory
+        ).flow
     }
 
     companion object {
         const val NETWORK_PAGE_SIZE = 20
-        const val API_KEY = "92338f76d94f4fdeb0f9f7b183182e3a"
-        const val API_KEY_2 = "7b80454330694ba39cbd5a0ab006b146"
-        const val API_KEY_3 = "3a88a09ef93342298911c52465535ae6"
     }
 }

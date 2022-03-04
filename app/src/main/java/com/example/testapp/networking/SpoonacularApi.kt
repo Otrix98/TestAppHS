@@ -1,7 +1,6 @@
 package com.example.testapp.networking
 
-import com.example.testapp.data.models.MenuItem
-import com.squareup.moshi.JsonClass
+import com.example.testapp.paging.SearchResponse
 import retrofit2.http.*
 
 interface SpoonacularApi {
@@ -12,10 +11,6 @@ interface SpoonacularApi {
         @Query("query") query: String,
         @Query("offset") page: Int,
         @Query("number") itemsPerPage: Int
-    ): ResponseSearch
+    ): SearchResponse
 }
 
-@JsonClass(generateAdapter = true)
-class ResponseSearch(
-    val menuItems: List<MenuItem>
-)

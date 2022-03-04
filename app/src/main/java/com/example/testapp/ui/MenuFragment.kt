@@ -2,124 +2,169 @@ package com.example.testapp.ui
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.paging.ExperimentalPagingApi
+import androidx.paging.LoadState
+import androidx.paging.PagingData
 import androidx.recyclerview.widget.DividerItemDecoration
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.testapp.R
+import androidx.recyclerview.widget.RecyclerView
+import com.example.testapp.data.models.CategoryItem
+import com.example.testapp.data.models.MenuItem
 import com.example.testapp.databinding.FragmentMenuBinding
+import com.example.testapp.ui.adapters.AdaptersListener
+import com.example.testapp.ui.adapters.CategoriesAdapter
 import com.example.testapp.ui.adapters.ListAdapter
+import com.example.testapp.ui.adapters.LoadStateAdapter
 import com.example.testapp.ui.viemodels.ListViewModel
+import com.example.testapp.ui.viemodels.UiAction
+import com.example.testapp.ui.viemodels.UiState
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 @ExperimentalPagingApi
-class MenuFragment : ViewBindingFragment<FragmentMenuBinding>(FragmentMenuBinding::inflate){
+class MenuFragment : ViewBindingFragment<FragmentMenuBinding>(FragmentMenuBinding::inflate), AdaptersListener {
 
-    private var pagingAdapter = ListAdapter()
+    private lateinit var categoriesAdapter: CategoriesAdapter
     private val viewModel by viewModels<ListViewModel>()
-    private val categoryList = listOf("Пицца", "Бургеры",  "Закуски",  "Роллы", "Десерты", "Напитки")
-    private lateinit var lastView: TextView
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         initCategories()
-        initList()
-        bindViewModel()
-        flowLoadDataToAdapter(categoryList[0])
-    }
-
-    private fun initList() {
         val itemDivider = DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
-        with(binding.recyclerView) {
-            adapter = pagingAdapter
-            layoutManager = LinearLayoutManager(requireContext())
-            addItemDecoration(itemDivider)
+        binding.recyclerView.addItemDecoration(itemDivider)
+        binding.bindState(
+            uiState = viewModel.state,
+            pagingData = viewModel.pagingDataFlow,
+            uiActions = viewModel.accept
+        )
+    }
+
+    override fun onClickItem(item: CategoryItem) {
+        viewModel.updateCategory(item.nameEng)
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun initCategories() {
+        categoriesAdapter = CategoriesAdapter()
+        categoriesAdapter.setOnClickListener(this)
+        with(binding.categoriesRecyclerView) {
+            adapter = categoriesAdapter
+        }
+        viewModel.categoriesList.observe(viewLifecycleOwner) {categoriesAdapter.categoryList = it
+        categoriesAdapter.notifyDataSetChanged()}
+    }
+
+    private fun FragmentMenuBinding.bindState(
+        uiState: StateFlow<UiState>,
+        pagingData: Flow<PagingData<MenuItem>>,
+        uiActions: (UiAction) -> Unit
+    ) {
+        val menuAdapter = ListAdapter()
+        val header = LoadStateAdapter { menuAdapter.retry() }
+        recyclerView.adapter = menuAdapter.withLoadStateHeaderAndFooter(
+            header = header,
+            footer = LoadStateAdapter { menuAdapter.retry() }
+        )
+        bindSearch(
+            onQueryChanged = uiActions
+        )
+        bindList(
+            header = header,
+            menuAdapter = menuAdapter,
+            uiState = uiState,
+            pagingData = pagingData,
+            onScrollChanged = uiActions
+        )
+    }
+
+    private fun FragmentMenuBinding.bindSearch(
+        onQueryChanged: (UiAction.Search) -> Unit
+    ) {
+        viewModel.categoriesList.observe(viewLifecycleOwner) {updateListFromInput(onQueryChanged)}
+    }
+
+    private fun FragmentMenuBinding.updateListFromInput(onQueryChanged: (UiAction.Search) -> Unit) {
+        viewModel.categoriesList.value?.forEach {
+            if (it.isPressed) {
+                recyclerView.scrollToPosition(0)
+                onQueryChanged(UiAction.Search(query = it.nameEng))
+            }
         }
     }
 
-    private fun bindViewModel() {
-        viewModel.progressBarVisible.observe(viewLifecycleOwner) {
-            binding.progressBar.isVisible = it
-        }
-        viewModel.serverConnectError.observe(viewLifecycleOwner) { errorText ->
-            showErrorMessage(errorText)
-        }
-    }
+    private fun FragmentMenuBinding.bindList(
+        header: LoadStateAdapter,
+        menuAdapter: ListAdapter,
+        uiState: StateFlow<UiState>,
+        pagingData: Flow<PagingData<MenuItem>>,
+        onScrollChanged: (UiAction.Scroll) -> Unit
+    ) {
+        retryButton.setOnClickListener { menuAdapter.retry() }
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy != 0) onScrollChanged(UiAction.Scroll(currentQuery = uiState.value.query))
+            }
+        })
+        val notLoading = menuAdapter.loadStateFlow
+            .asRemotePresentationState()
+            .map { it == RemotePresentationState.PRESENTED }
 
-    private fun flowLoadDataToAdapter(category: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.flowGetListBreweries(category)
-                .catch { it.message?.let { it1 -> showErrorMessage(it1) } }
-                .collectLatest { pagingData ->
-                    pagingAdapter.submitData(pagingData)
+        val hasNotScrolledForCurrentSearch = uiState
+            .map { it.hasNotScrolledForCurrentSearch }
+            .distinctUntilChanged()
+
+        val shouldScrollToTop = combine(
+            notLoading,
+            hasNotScrolledForCurrentSearch,
+            Boolean::and
+        )
+            .distinctUntilChanged()
+
+        lifecycleScope.launch {
+            pagingData.collectLatest {
+                menuAdapter.submitData(it)
+            }
+        }
+
+        lifecycleScope.launch {
+            shouldScrollToTop.collect { shouldScroll ->
+                if (shouldScroll) recyclerView.scrollToPosition(0)
+            }
+        }
+
+        lifecycleScope.launch {
+            menuAdapter.loadStateFlow.collect { loadState ->
+                header.loadState = loadState.mediator
+                    ?.refresh
+                    ?.takeIf { it is LoadState.Error && menuAdapter.itemCount > 0 }
+                    ?: loadState.prepend
+
+                val isListEmpty =
+                    loadState.refresh is LoadState.NotLoading && menuAdapter.itemCount == 0
+                emptyList.isVisible = isListEmpty
+                recyclerView.isVisible =
+                    loadState.source.refresh is LoadState.NotLoading || loadState.mediator?.refresh is LoadState.NotLoading
+                progressBar.isVisible = loadState.mediator?.refresh is LoadState.Loading
+                retryButton.isVisible =
+                    loadState.mediator?.refresh is LoadState.Error && menuAdapter.itemCount == 0
+                val errorState = loadState.source.append as? LoadState.Error
+                    ?: loadState.source.prepend as? LoadState.Error
+                    ?: loadState.append as? LoadState.Error
+                    ?: loadState.prepend as? LoadState.Error
+                errorState?.let {
+                    Toast.makeText(
+                        requireContext(),
+                        "\uD83D\uDE28 Wooops ${it.error}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
+            }
         }
-    }
-
-    private fun showErrorMessage(errorText: String) {
-        with(binding) {
-            errorTextView.isVisible = true
-            errorTextView.text = errorText
-            retryButton.isVisible = true
-        }
-    }
-
-    private fun updateList(category: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            flowLoadDataToAdapter(category)
-            binding.retryButton.isVisible = false
-            binding.errorTextView.isVisible = false
-        }
-    }
-
-       @SuppressLint("InflateParams")
-       private fun initCategories() {
-           for (i in categoryList) {
-               val view = LayoutInflater.from(requireContext())
-                   .inflate(R.layout.item_top_category, null) as TextView
-               val textView = view.findViewById<TextView>(R.id.categoryItem)
-               textView.text = i
-               if (i == categoryList[0]) {
-                   tintClicked(textView); lastView = view
-               }
-               textView.setOnClickListener {
-                   onClickCategory(it as TextView)
-               }
-               binding.categoriesLayout.addView(view)
-           }
-
-           binding.retryButton.setOnClickListener {updateList(lastView.text.toString())}
-       }
-
-    private fun onClickCategory(view: TextView) {
-        returnBack(lastView)
-        tintClicked(view)
-        lastView = view
-        updateList(view.text.toString())
-    }
-
-    private fun returnBack(textView: TextView) {
-        textView.setTextColor(requireContext().getColor(R.color.gray_tint))
-        textView.backgroundTintList =
-            requireContext().resources.getColorStateList(
-                R.color.poor_white,
-                requireContext().theme)
-    }
-
-    private fun tintClicked(textView: TextView) {
-        textView.setTextColor(requireContext().getColor(R.color.pink))
-        textView.backgroundTintList =
-            requireContext().resources.getColorStateList(
-                R.color.backgroundClicked,
-                requireContext().theme
-            )
     }
 }

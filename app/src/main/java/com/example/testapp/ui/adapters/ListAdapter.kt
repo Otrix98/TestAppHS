@@ -1,6 +1,5 @@
 package com.example.testapp.ui.adapters
 
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -13,24 +12,23 @@ import com.example.testapp.data.models.MenuItem
 import com.example.testapp.databinding.ItemFoodBinding
 
 
-class ListAdapter() : PagingDataAdapter<MenuItem, ListAdapter.RepoHolder>(ItemComparator) {
+class ListAdapter() : PagingDataAdapter<MenuItem, ListAdapter.MenuHolder>(ItemComparator) {
 
     override fun onCreateViewHolder(
         parent: ViewGroup,
         viewType: Int
-    ): RepoHolder {
+    ): MenuHolder {
         val itemBinding =
             ItemFoodBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return RepoHolder(
+        return MenuHolder(
             itemBinding
         )
     }
 
-    override fun onBindViewHolder(holder: RepoHolder, position: Int) {
+    override fun onBindViewHolder(holder: MenuHolder, position: Int) {
         val item = getItem(position)
         if (item != null) {
             holder.bind(item)
-            Log.d ("ISLISTEMPTY", item.toString() )
         }
     }
 
@@ -45,7 +43,7 @@ class ListAdapter() : PagingDataAdapter<MenuItem, ListAdapter.RepoHolder>(ItemCo
     }
 
 
-   inner class RepoHolder(
+   inner class MenuHolder(
         private val binding: ItemFoodBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
@@ -57,6 +55,7 @@ class ListAdapter() : PagingDataAdapter<MenuItem, ListAdapter.RepoHolder>(ItemCo
 
             Glide.with(itemView)
                 .load(value.image)
+                .circleCrop()
                 .error(R.drawable.emptydish)
                 .into(menuImageView)
         }
